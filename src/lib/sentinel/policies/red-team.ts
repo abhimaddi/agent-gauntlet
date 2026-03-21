@@ -16,6 +16,14 @@ const ALLOWED_FAMILIES: AttackFamily[] = [
   'data_exfil_bait',
 ];
 
+function llmAttackAttempts(): number {
+  const parsed = Number(process.env.SENTINEL_RED_TEAM_LLM_ATTEMPTS ?? 3);
+  if (!Number.isFinite(parsed)) {
+    return 3;
+  }
+  return Math.min(5, Math.max(1, Math.round(parsed)));
+}
+
 function sanitizePayload(payload: string): string {
   return payload
     .replace(/<script[\s\S]*?>[\s\S]*?<\/script>/gi, '')
@@ -69,24 +77,28 @@ async function chooseLlmAttack(params: {
     2,
   );
 
-  const result = await callLlmJson<RedTeamLlmResponse>({
-    config,
-    systemPrompt,
-    userPrompt,
-  });
+  const attempts = llmAttackAttempts();
+  for (let attempt = 0; attempt < attempts; attempt += 1) {
+    const result = await callLlmJson<RedTeamLlmResponse>({
+      config,
+      systemPrompt,
+      userPrompt,
+    });
 
-  if (!result?.attackFamily || !ALLOWED_FAMILIES.includes(result.attackFamily)) {
-    return null;
+    if (!result?.attackFamily || !ALLOWED_FAMILIES.includes(result.attackFamily)) {
+      continue;
+    }
+
+    const payload = sanitizePayload(result.payload || params.fallback.payload);
+    return {
+      family: result.attackFamily,
+      name: (result.attackName || params.fallback.name).slice(0, 60),
+      description: (result.description || params.fallback.description).slice(0, 140),
+      payload: payload.length > 0 ? payload : params.fallback.payload,
+    };
   }
 
-  const payload = sanitizePayload(result.payload || params.fallback.payload);
-
-  return {
-    family: result.attackFamily,
-    name: (result.attackName || params.fallback.name).slice(0, 60),
-    description: (result.description || params.fallback.description).slice(0, 140),
-    payload: payload.length > 0 ? payload : params.fallback.payload,
-  };
+  return null;
 }
 
 export async function chooseRedTeamAction(params: {

@@ -218,6 +218,31 @@ export function ArenaClient({ gameId }: { gameId: string }) {
               </li>
             ))}
           </ol>
+
+          <h3 className="mb-2 mt-4 text-sm font-semibold">Red-Team Timeline</h3>
+          <ol className="max-h-[220px] space-y-2 overflow-auto pr-1 text-sm">
+            {session.redTeamActions.length === 0 ? (
+              <li className="rounded-lg border border-[var(--border)] bg-[var(--panel)]/70 p-2 text-xs text-[var(--text-muted)]">
+                No red-team action recorded yet.
+              </li>
+            ) : (
+              session.redTeamActions.map((action) => (
+                <li
+                  key={`${action.actionNumber}-${action.timestamp}`}
+                  className="rounded-lg border border-[var(--border)] bg-[var(--panel)]/70 p-2"
+                >
+                  <p className="text-xs text-[var(--text-muted)]">Attack {action.actionNumber}</p>
+                  <p className="font-medium">
+                    {action.attackFamily} • {action.attackName}
+                  </p>
+                  <p className="text-xs text-[var(--text-muted)]">{action.description}</p>
+                  <p className="text-[10px] text-[var(--text-muted)]">
+                    success={String(action.success)} judge={action.judgeVerdict}
+                  </p>
+                </li>
+              ))
+            )}
+          </ol>
         </article>
       </section>
 
