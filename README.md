@@ -1,8 +1,10 @@
-# Sentinel Arena
+# Agent Gauntlet
 
-Sentinel Arena is a local-first, browser-only adversarial benchmark for web agents.
+Agent Gauntlet is a local-first, browser-only adversarial benchmark for web agents.
 
 It is a deterministic MVP that runs entirely on your machine with **Playwright only** (no Browser-Use API, no `browser-use-sdk`).
+
+Note: internal API routes and env variable prefixes still use `sentinel`/`SENTINEL_` for compatibility.
 
 ## What It Does
 
