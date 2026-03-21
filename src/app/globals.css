@@ -1,0 +1,157 @@
+@import "tailwindcss";
+
+:root {
+  --font-display: "Avenir Next", "Trebuchet MS", "Segoe UI", sans-serif;
+  --font-mono: "SF Mono", "Fira Code", "Menlo", ui-monospace, monospace;
+  --bg: #06080e;
+  --panel: #0f1523;
+  --panel-2: #121a2b;
+  --card: rgba(15, 21, 35, 0.78);
+  --border: rgba(124, 163, 255, 0.2);
+  --text: #e9f0ff;
+  --text-muted: #9db0da;
+  --task: #4dd9ac;
+  --red: #ff5d7d;
+  --accent: #67b5ff;
+  --warning: #ffc266;
+  --ok: #5ce0ff;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  min-height: 100%;
+  background:
+    radial-gradient(1100px 500px at 90% -15%, rgba(103, 181, 255, 0.26), transparent),
+    radial-gradient(900px 500px at -10% -20%, rgba(77, 217, 172, 0.18), transparent),
+    linear-gradient(180deg, #05070c 0%, #06080e 100%);
+  color: var(--text);
+  font-family: var(--font-display), sans-serif;
+}
+
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  background-image: linear-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+  background-size: 42px 42px;
+  mask-image: linear-gradient(to bottom, black, transparent 85%);
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+.sentinel-shell {
+  position: relative;
+  z-index: 1;
+  width: min(1240px, calc(100% - 2rem));
+  margin: 0 auto;
+  padding: 1.25rem 0 3rem;
+}
+
+.card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 1rem;
+  box-shadow: 0 14px 42px rgba(0, 0, 0, 0.32);
+  backdrop-filter: blur(8px);
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  border-radius: 999px;
+  padding: 0.25rem 0.6rem;
+  border: 1px solid transparent;
+  font-size: 0.72rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  font-family: var(--font-mono), ui-monospace, monospace;
+}
+
+.chip-task {
+  color: var(--task);
+  border-color: color-mix(in srgb, var(--task) 45%, transparent);
+  background: color-mix(in srgb, var(--task) 13%, transparent);
+}
+
+.chip-red {
+  color: var(--red);
+  border-color: color-mix(in srgb, var(--red) 45%, transparent);
+  background: color-mix(in srgb, var(--red) 13%, transparent);
+}
+
+.chip-accent {
+  color: var(--accent);
+  border-color: color-mix(in srgb, var(--accent) 45%, transparent);
+  background: color-mix(in srgb, var(--accent) 13%, transparent);
+}
+
+.title-glow {
+  text-shadow: 0 0 12px rgba(103, 181, 255, 0.26);
+}
+
+.fade-in {
+  animation: fadeIn 420ms ease both;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.log-list {
+  max-height: 320px;
+  overflow: auto;
+}
+
+.log-list::-webkit-scrollbar {
+  width: 8px;
+}
+
+.log-list::-webkit-scrollbar-thumb {
+  background: rgba(145, 167, 216, 0.35);
+  border-radius: 999px;
+}
+
+select,
+button,
+input {
+  font: inherit;
+}
+
+button {
+  cursor: pointer;
+}
+
+.text-mono {
+  font-family: var(--font-mono), ui-monospace, monospace;
+}
+
+.metric-value {
+  font-size: 1.6rem;
+  line-height: 1;
+  font-weight: 700;
+}
+
+@media (max-width: 900px) {
+  .sentinel-shell {
+    width: calc(100% - 1rem);
+    padding-top: 0.9rem;
+  }
+}
