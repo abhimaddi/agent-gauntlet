@@ -448,11 +448,251 @@ a {
   --feed-ink: #f0d9a9;
 }
 
+.arena-shell {
+  padding-bottom: 2.75rem;
+}
+
+.arena-showdown-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 1rem;
+  align-items: stretch;
+  min-height: 0;
+}
+
+.arena-side-rail,
+.arena-stage-card {
+  position: relative;
+  overflow: hidden;
+  min-height: 0;
+}
+
+.arena-side-rail::before,
+.arena-stage-card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.025), transparent 18%),
+    repeating-linear-gradient(0deg, transparent, transparent 26px, rgba(232, 160, 32, 0.02) 26px, rgba(232, 160, 32, 0.02) 27px);
+}
+
+.arena-side-rail-shell,
+.arena-stage-card {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  height: 100%;
+}
+
+.arena-side-rail-shell {
+  position: relative;
+  z-index: 1;
+  gap: 0.8rem;
+  padding: 0.92rem;
+  overflow: hidden;
+}
+
+.arena-side-rail-head {
+  display: grid;
+  gap: 0.22rem;
+}
+
+.arena-side-rail-kicker {
+  color: var(--text-muted);
+  font-size: 0.62rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.arena-side-rail-title,
+.arena-stage-title {
+  color: var(--text);
+  font-size: 1.05rem;
+  font-weight: 700;
+}
+
+.arena-side-rail-copy {
+  color: var(--text-dim);
+  font-size: 0.74rem;
+  line-height: 1.5;
+}
+
+.arena-side-rail-stats {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.5rem;
+}
+
+.arena-side-rail-note {
+  border: 1px solid rgba(232, 160, 32, 0.18);
+  background: linear-gradient(180deg, rgba(35, 22, 10, 0.8), rgba(21, 13, 6, 0.9));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
+  padding: 0.7rem 0.78rem;
+}
+
+.arena-side-rail-note-label {
+  color: var(--text-muted);
+  font-size: 0.62rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.arena-side-rail-note-value {
+  margin-top: 0.22rem;
+  color: var(--text);
+  font-size: 0.78rem;
+  line-height: 1.55;
+}
+
+.arena-side-rail-feed {
+  display: flex;
+  min-height: 0;
+  flex: 1 1 auto;
+  overflow: hidden;
+}
+
+.arena-side-rail-task {
+  border-color: color-mix(in srgb, var(--gold) 30%, var(--border));
+}
+
+.arena-side-rail-red {
+  border-color: color-mix(in srgb, var(--red) 36%, var(--border));
+}
+
+.arena-stage-card {
+  gap: 0.88rem;
+  padding: 0.95rem;
+}
+
+.arena-stage-head {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.8rem;
+}
+
+.arena-stage-frame {
+  position: relative;
+  z-index: 1;
+  flex: 1 1 auto;
+  min-height: clamp(24rem, 50vh, 38rem);
+  border: 1px solid color-mix(in srgb, var(--gold) 22%, var(--border));
+  background:
+    radial-gradient(circle at top, rgba(232, 160, 32, 0.06), transparent 32%),
+    linear-gradient(180deg, rgba(17, 11, 6, 0.96), rgba(10, 7, 4, 0.98));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.05),
+    inset 0 -18px 40px rgba(0, 0, 0, 0.22),
+    0 18px 36px rgba(0, 0, 0, 0.16);
+  overflow: hidden;
+}
+
+.arena-stage-scroll {
+  height: 100%;
+  overflow: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable both-edges;
+}
+
+.arena-stage-scroll::-webkit-scrollbar {
+  width: 6px;
+}
+
+.arena-stage-scroll::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--gold) 35%, transparent);
+}
+
+.arena-stage-image,
+.arena-stage-placeholder {
+  width: 100%;
+}
+
+.arena-stage-image {
+  display: block;
+  min-height: 0;
+  height: auto;
+  object-fit: contain;
+  border: 0;
+}
+
+.arena-stage-placeholder {
+  display: grid;
+  place-items: center;
+  min-height: 100%;
+  color: var(--text-muted);
+  font-size: 0.86rem;
+  padding: 1rem;
+}
+
+.arena-stage-stats {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.55rem;
+}
+
+.arena-stage-stat {
+  border: 1px solid rgba(232, 160, 32, 0.18);
+  background: linear-gradient(180deg, rgba(34, 20, 10, 0.88), rgba(18, 11, 5, 0.94));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
+  padding: 0.72rem 0.8rem;
+}
+
+.arena-stage-stat.is-wide {
+  grid-column: span 2;
+}
+
+.arena-stage-stat.is-task {
+  border-color: rgba(216, 173, 92, 0.28);
+}
+
+.arena-stage-stat.is-red {
+  border-color: rgba(216, 106, 50, 0.28);
+}
+
+.arena-stage-stat-label {
+  color: var(--text-muted);
+  font-size: 0.62rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.arena-stage-stat-value {
+  margin-top: 0.22rem;
+  color: var(--text);
+  font-size: 0.82rem;
+  line-height: 1.5;
+}
+
 .duel-feed-red {
   --feed-accent: #d86a32;
   --feed-accent-soft: rgba(216, 106, 50, 0.2);
   --feed-accent-faint: rgba(216, 106, 50, 0.08);
   --feed-ink: #f1c7a8;
+}
+
+.duel-feed.is-rail {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  height: 100%;
+  flex: 1 1 auto;
+  overflow: hidden;
+}
+
+.duel-feed.is-rail .duel-feed-headline {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  margin-bottom: 0.5rem;
+  padding-bottom: 0.4rem;
+  background: linear-gradient(180deg, rgba(26, 16, 7, 0.98), rgba(26, 16, 7, 0.88) 80%, transparent);
 }
 
 .duel-feed-headline {
@@ -490,6 +730,15 @@ a {
   max-height: 250px;
   overflow: auto;
   padding-right: 0.2rem;
+}
+
+.duel-feed.is-rail .duel-feed-list {
+  flex: 1 1 auto;
+  min-height: 0;
+  max-height: none;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
 }
 
 .duel-feed-list::-webkit-scrollbar {
@@ -741,6 +990,39 @@ a {
   .duel-feed-panel,
   .duel-feed-panel-inner {
     transition-duration: 0.01ms !important;
+  }
+}
+
+@media (min-width: 1280px) {
+  .arena-showdown-grid {
+    height: clamp(39.25rem, 76vh, 53rem);
+    grid-template-columns: minmax(250px, 0.95fr) minmax(0, 2.25fr) minmax(250px, 0.95fr);
+  }
+
+  .arena-side-rail,
+  .arena-stage-card {
+    height: 100%;
+  }
+
+  .arena-stage-frame {
+    min-height: clamp(25rem, 56vh, 40rem);
+  }
+}
+
+@media (max-width: 1279px) {
+  .arena-stage-frame {
+    min-height: clamp(22rem, 50vh, 35rem);
+  }
+}
+
+@media (max-width: 767px) {
+  .arena-side-rail-stats,
+  .arena-stage-stats {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .arena-stage-stat.is-wide {
+    grid-column: span 1;
   }
 }
 

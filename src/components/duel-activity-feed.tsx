@@ -9,12 +9,14 @@ export function DuelActivityFeed({
   tone,
   items,
   emptyMessage,
+  layout = 'compact',
 }: {
   title: string;
   subtitle?: string;
   tone: DuelFeedTone;
   items: DuelFeedItem[];
   emptyMessage: string;
+  layout?: 'compact' | 'rail';
 }) {
   const [openItems, setOpenItems] = useState<Record<string, boolean>>({});
 
@@ -35,7 +37,7 @@ export function DuelActivityFeed({
   }
 
   return (
-    <section className={`duel-feed duel-feed-${tone}`}>
+    <section className={`duel-feed duel-feed-${tone} ${layout === 'rail' ? 'is-rail' : ''}`}>
       <div className="duel-feed-headline">
         <h3 className="duel-feed-title">{title}</h3>
         {subtitle ? <p className="duel-feed-subtitle">{subtitle}</p> : null}
