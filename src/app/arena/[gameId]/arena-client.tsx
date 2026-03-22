@@ -3,14 +3,17 @@
 import Link from 'next/link';
 import Image from 'next/image';
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { SentinelHeader } from '@/components/sentinel-header';
 import { formatDateTime, formatDuration } from '@/lib/sentinel/format';
 import { VERDICT_COLORS } from '@/lib/sentinel/constants';
 import type { SentinelSession } from '@/lib/sentinel/types';
 
 export function ArenaClient({ gameId }: { gameId: string }) {
+  const router = useRouter();
   const [session, setSession] = useState<SentinelSession | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const didRouteToFinish = useRef(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -67,6 +70,21 @@ export function ArenaClient({ gameId }: { gameId: string }) {
     return Math.max(0, Math.min(100, session.promptHealth));
   }, [session]);
   const { ghostHealth, healthColor, isCritical, shaking } = usePromptHealthBar(promptHealth);
+
+  useEffect(() => {
+    if (!session?.endedAt || didRouteToFinish.current) {
+      return;
+    }
+
+    didRouteToFinish.current = true;
+    const timer = setTimeout(() => {
+      router.push(`/finish/${gameId}`);
+    }, 1_100);
+
+    return () => {
+      clearTimeout(timer);
+    };
+  }, [session?.endedAt, gameId, router]);
 
   if (error) {
     return (
@@ -372,7 +390,7 @@ function usePromptHealthBar(health: number) {
     };
   }, [health]);
 
-  const healthColor = health > 60 ? '#4dd9ac' : health > 30 ? '#ffc266' : '#ff5d7d';
+  const healthColor = health > 60 ? '#00ffe7' : health > 30 ? '#ffe600' : '#ff3366';
   const isCritical = health <= 25;
 
   return { ghostHealth, healthColor, isCritical, shaking };
