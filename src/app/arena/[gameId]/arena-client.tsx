@@ -297,12 +297,13 @@ export function ArenaClient({ gameId }: { gameId: string }) {
           </div>
 
           <div className="arena-stage-stats">
-            <ArenaStageStat label="Current Task" value={session.task} tone="task" wide />
+            <ArenaStageStat label="Current Task" value={session.task} tone="task" wide scrollable />
             <ArenaStageStat
               label="Current Red-Team Attack"
               value={session.activeAttackName ?? latestRedAction?.attackName ?? 'None'}
               tone="red"
               wide
+              scrollable
             />
             <ArenaStageStat label="Risk Score" value={latestStep ? String(latestStep.riskScore) : 'N/A'} />
             <ArenaStageStat label="Task Progress" value={latestStep ? `${latestStep.taskProgress}%` : '0%'} tone="task" />
@@ -384,11 +385,11 @@ export function ArenaClient({ gameId }: { gameId: string }) {
         </div>
 
         <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
-          <div className="rounded-lg border border-[var(--border)] bg-[var(--panel)]/70 p-3">
+          <div className="arena-log-panel">
             <p className="mb-2 text-xs uppercase tracking-widest text-[var(--text-muted)]">Events</p>
             <ul className="log-list space-y-2 text-sm">
               {session.eventsLog.map((event) => (
-                <li key={event.id} className="rounded-md border border-[var(--border)]/60 p-2">
+                <li key={event.id} className="arena-log-entry">
                   <p className="text-xs text-[var(--text-muted)]">{formatDateTime(event.timestamp)}</p>
                   <p>{event.message}</p>
                 </li>
@@ -396,11 +397,11 @@ export function ArenaClient({ gameId }: { gameId: string }) {
             </ul>
           </div>
 
-          <div className="rounded-lg border border-[var(--border)] bg-[var(--panel)]/70 p-3">
+          <div className="arena-log-panel">
             <p className="mb-2 text-xs uppercase tracking-widest text-[var(--text-muted)]">Task-Agent rationale summary</p>
             <ul className="log-list space-y-2 text-sm">
               {session.taskAgentSteps.map((step) => (
-                <li key={`rationale-${step.stepNumber}`} className="rounded-md border border-[var(--border)]/60 p-2">
+                <li key={`rationale-${step.stepNumber}`} className="arena-log-entry">
                   <p className="text-xs text-[var(--text-muted)]">Step {step.stepNumber}</p>
                   <p>{step.rationaleSummary}</p>
                 </li>
@@ -415,11 +416,11 @@ export function ArenaClient({ gameId }: { gameId: string }) {
 
 function StatusBox({ label, value, color }: { label: string; value: string; color: string }) {
   return (
-    <div className="rounded-lg border p-2" style={{ borderColor: `${color}66`, background: `${color}15` }}>
-      <p className="text-[10px] uppercase tracking-widest" style={{ color }}>
+    <div className="arena-status-box" style={{ '--status-color': color } as CSSProperties}>
+      <p className="arena-status-box-label" style={{ color }}>
         {label}
       </p>
-      <p className="mt-1 text-sm font-medium">{value}</p>
+      <p className="arena-status-box-value">{value}</p>
     </div>
   );
 }
@@ -429,16 +430,24 @@ function ArenaStageStat({
   value,
   tone = 'neutral',
   wide = false,
+  scrollable = false,
 }: {
   label: string;
   value: string;
   tone?: 'neutral' | 'task' | 'red';
   wide?: boolean;
+  scrollable?: boolean;
 }) {
   return (
-    <div className={`arena-stage-stat ${wide ? 'is-wide' : ''} ${tone !== 'neutral' ? `is-${tone}` : ''}`}>
+    <div
+      className={`arena-stage-stat ${wide ? 'is-wide' : ''} ${scrollable ? 'is-scrollable' : ''} ${
+        tone !== 'neutral' ? `is-${tone}` : ''
+      }`}
+    >
       <p className="arena-stage-stat-label">{label}</p>
-      <p className="arena-stage-stat-value">{value}</p>
+      <div className="arena-stage-stat-value-wrap">
+        <p className="arena-stage-stat-value">{value}</p>
+      </div>
     </div>
   );
 }

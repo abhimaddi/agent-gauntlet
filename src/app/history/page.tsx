@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { SentinelHeader } from '@/components/sentinel-header';
-import { formatDateTime, formatDuration } from '@/lib/sentinel/format';
+import { formatDateTime, formatDuration, formatPercent } from '@/lib/sentinel/format';
 import { SCENARIOS } from '@/lib/sentinel/scenarios';
 import type { AttackFamily, Difficulty, FinalVerdict, SentinelSession } from '@/lib/sentinel/types';
 
@@ -71,13 +71,33 @@ export default function HistoryPage() {
     }));
   }, [filtered]);
 
+  const overview = useMemo(() => {
+    const totalEpisodes = filtered.length;
+    const safeCompletionRate = totalEpisodes
+      ? filtered.filter((session) => session.finalVerdict === 'SAFE_SUCCESS').length / totalEpisodes
+      : 0;
+    const attackSuccessRate = totalEpisodes
+      ? filtered.filter((session) => session.attackSucceeded).length / totalEpisodes
+      : 0;
+    const recoveryRate = totalEpisodes
+      ? filtered.filter((session) => session.recoveryOccurred).length / totalEpisodes
+      : 0;
+
+    return {
+      totalEpisodes,
+      safeCompletionRate,
+      attackSuccessRate,
+      recoveryRate,
+    };
+  }, [filtered]);
+
   return (
-    <main className="sentinel-shell">
+    <main className="sentinel-shell no-halo">
       <SentinelHeader />
 
       <section className="card mb-4 p-4 md:p-5 fade-in">
         <h2 className="mb-2 text-2xl font-semibold">Session History</h2>
-        <p className="text-sm text-[var(--text-muted)]">Filter and replay previous Sentinel Arena sessions.</p>
+        <p className="text-sm text-[var(--text-muted)]">Filter and replay previous Agent Gauntlet sessions.</p>
 
         <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-4">
           <select
@@ -134,23 +154,30 @@ export default function HistoryPage() {
         </div>
       </section>
 
+      <section className="mb-4 grid grid-cols-2 gap-3 xl:grid-cols-4 fade-in">
+        <HistoryMetricCard label="Filtered Episodes" value={String(overview.totalEpisodes)} accent="var(--accent)" />
+        <HistoryMetricCard label="Safe Completion Rate" value={formatPercent(overview.safeCompletionRate)} accent="var(--ok)" />
+        <HistoryMetricCard label="Attack Success Rate" value={formatPercent(overview.attackSuccessRate)} accent="var(--red)" />
+        <HistoryMetricCard label="Recovery Rate" value={formatPercent(overview.recoveryRate)} accent="var(--warning)" />
+      </section>
+
       <section className="card mb-4 p-4 fade-in">
         <h3 className="mb-3 text-sm uppercase tracking-widest text-[var(--text-muted)]">Safe vs unsafe outcomes by scenario</h3>
         <div className="h-64">
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={chartData}>
-              <CartesianGrid strokeDasharray="3 3" stroke="rgba(157, 176, 218, 0.2)" />
-              <XAxis dataKey="scenario" stroke="#9db0da" />
-              <YAxis stroke="#9db0da" allowDecimals={false} />
+              <CartesianGrid strokeDasharray="3 3" stroke="rgba(232, 160, 32, 0.2)" />
+              <XAxis dataKey="scenario" stroke="#b89252" />
+              <YAxis stroke="#b89252" allowDecimals={false} />
               <Tooltip
                 contentStyle={{
-                  background: '#0f1523',
-                  border: '1px solid rgba(124, 163, 255, 0.2)',
-                  borderRadius: '12px',
+                  background: 'var(--panel)',
+                  border: '1px solid var(--border)',
+                  borderRadius: '0px',
                 }}
               />
-              <Bar dataKey="safe" fill="#4dd9ac" radius={[6, 6, 0, 0]} />
-              <Bar dataKey="unsafe" fill="#ff5d7d" radius={[6, 6, 0, 0]} />
+              <Bar dataKey="safe" fill="#e8a020" radius={[0, 0, 0, 0]} />
+              <Bar dataKey="unsafe" fill="#c0392b" radius={[0, 0, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
         </div>
@@ -190,5 +217,16 @@ export default function HistoryPage() {
         </div>
       </section>
     </main>
+  );
+}
+
+function HistoryMetricCard({ label, value, accent }: { label: string; value: string; accent: string }) {
+  return (
+    <article className="card metric-card px-4 py-4">
+      <p className="mb-1 text-[10px] uppercase tracking-[0.16em] text-[var(--text-dim)]">{label}</p>
+      <p className="metric-value" style={{ color: accent }}>
+        {value}
+      </p>
+    </article>
   );
 }
