@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import Image from 'next/image';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { useRouter } from 'next/navigation';
 import { SentinelHeader } from '@/components/sentinel-header';
 import { formatDateTime, formatDuration } from '@/lib/sentinel/format';
@@ -69,7 +69,19 @@ export function ArenaClient({ gameId }: { gameId: string }) {
     }
     return Math.max(0, Math.min(100, session.promptHealth));
   }, [session]);
-  const { ghostHealth, healthColor, isCritical, shaking } = usePromptHealthBar(promptHealth);
+  const { ghostHealth, healthPalette, healthColor, isLow, isCritical, shaking, damagePulseKey } =
+    usePromptHealthBar(promptHealth);
+  const healthBarStyle = {
+    '--health-fill-start': healthPalette.fillStart,
+    '--health-fill-mid': healthPalette.fillMid,
+    '--health-fill-end': healthPalette.fillEnd,
+    '--health-glow': healthPalette.glow,
+    '--health-trail-start': healthPalette.trailStart,
+    '--health-trail-end': healthPalette.trailEnd,
+    '--health-trail-glow': healthPalette.trailGlow,
+    '--health-pulse': healthPalette.pulse,
+    '--health-pulse-soft': healthPalette.pulseSoft,
+  } as CSSProperties;
 
   useEffect(() => {
     if (!session?.endedAt || didRouteToFinish.current) {
@@ -117,7 +129,12 @@ export function ArenaClient({ gameId }: { gameId: string }) {
         <div className="mb-2 flex items-center justify-between">
           <p className="text-xs uppercase tracking-widest text-[var(--text-muted)]">Task Prompt Health</p>
           <div className="text-right">
-            <p className="text-mono text-xs font-semibold" style={{ color: healthColor }}>
+            <p
+              className={`arena-health-value text-mono text-xs font-semibold ${
+                isLow ? 'is-low' : ''
+              } ${isCritical ? 'is-critical' : ''}`}
+              style={{ color: healthColor }}
+            >
               {Math.round(promptHealth)}%
             </p>
             <p className="text-[10px] text-[var(--text-muted)]">
@@ -129,33 +146,37 @@ export function ArenaClient({ gameId }: { gameId: string }) {
           </div>
         </div>
         <div
-          className={`relative h-6 overflow-hidden rounded-md border border-[var(--border)] bg-[var(--panel)] ${shaking ? 'animate-pulse' : ''}`}
+          role="progressbar"
+          aria-label="Task prompt health"
+          aria-valuemin={0}
+          aria-valuemax={100}
+          aria-valuenow={Math.round(promptHealth)}
+          className={`arena-health-bar ${shaking ? 'is-hit' : ''} ${isLow ? 'is-low' : ''} ${
+            isCritical ? 'is-critical' : ''
+          }`}
+          style={healthBarStyle}
         >
           {[25, 50, 75].map((mark) => (
             <span
               key={mark}
-              className="absolute bottom-0 top-0 w-px bg-black/35"
+              className="arena-health-mark"
               style={{ left: `${mark}%` }}
             />
           ))}
 
           {ghostHealth > promptHealth ? (
             <span
-              className="absolute bottom-0 left-0 top-0 bg-[var(--red)]/65 transition-[width] duration-700"
+              className="arena-health-ghost"
               style={{ width: `${ghostHealth}%` }}
             />
           ) : null}
 
           <span
-            className={`absolute bottom-0 left-0 top-0 transition-[width,background] duration-200 ${
-              isCritical ? 'animate-pulse' : ''
-            }`}
-            style={{
-              width: `${promptHealth}%`,
-              background: `linear-gradient(90deg, ${healthColor}cc, ${healthColor})`,
-              boxShadow: `0 0 18px ${healthColor}66`,
-            }}
+            className="arena-health-fill"
+            style={{ width: `${promptHealth}%` }}
           />
+          {damagePulseKey > 0 ? <span key={damagePulseKey} className="arena-health-hit" /> : null}
+          <span className="arena-health-frame" />
         </div>
       </section>
 
@@ -333,19 +354,35 @@ function StatusBox({ label, value, color }: { label: string; value: string; colo
   );
 }
 
+type PromptHealthPalette = {
+  label: string;
+  fillStart: string;
+  fillMid: string;
+  fillEnd: string;
+  glow: string;
+  trailStart: string;
+  trailEnd: string;
+  trailGlow: string;
+  pulse: string;
+  pulseSoft: string;
+};
+
 function usePromptHealthBar(health: number) {
   const [ghostHealth, setGhostHealth] = useState(health);
   const [shaking, setShaking] = useState(false);
+  const [damagePulseKey, setDamagePulseKey] = useState(0);
   const previous = useRef(health);
   const ghostTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     let cancelled = false;
 
+    if (ghostTimer.current) {
+      clearTimeout(ghostTimer.current);
+      ghostTimer.current = null;
+    }
+
     if (health >= previous.current) {
-      if (ghostTimer.current) {
-        clearTimeout(ghostTimer.current);
-      }
       previous.current = health;
       const syncFrame = requestAnimationFrame(() => {
         if (!cancelled) {
@@ -362,6 +399,7 @@ function usePromptHealthBar(health: number) {
     previous.current = health;
     const shakeFrame = requestAnimationFrame(() => {
       if (!cancelled) {
+        setDamagePulseKey((value) => value + 1);
         setShaking(true);
       }
     });
@@ -369,16 +407,13 @@ function usePromptHealthBar(health: number) {
       if (!cancelled) {
         setShaking(false);
       }
-    }, 320);
-
-    if (ghostTimer.current) {
-      clearTimeout(ghostTimer.current);
-    }
+    }, 240);
     ghostTimer.current = setTimeout(() => {
       if (!cancelled) {
         setGhostHealth(health);
       }
-    }, 700);
+      ghostTimer.current = null;
+    }, 180);
 
     return () => {
       cancelled = true;
@@ -386,14 +421,77 @@ function usePromptHealthBar(health: number) {
       clearTimeout(shakeTimer);
       if (ghostTimer.current) {
         clearTimeout(ghostTimer.current);
+        ghostTimer.current = null;
       }
     };
   }, [health]);
 
-  const healthColor = health > 60 ? '#00ffe7' : health > 30 ? '#ffe600' : '#ff3366';
+  const healthPalette = getPromptHealthPalette(health);
+  const healthColor = healthPalette.label;
+  const isLow = health <= 40;
   const isCritical = health <= 25;
 
-  return { ghostHealth, healthColor, isCritical, shaking };
+  return { ghostHealth, healthPalette, healthColor, isLow, isCritical, shaking, damagePulseKey };
+}
+
+function getPromptHealthPalette(health: number): PromptHealthPalette {
+  if (health >= 100) {
+    return {
+      label: '#72ff7f',
+      fillStart: '#baff9a',
+      fillMid: '#72ff7f',
+      fillEnd: '#20d95a',
+      glow: 'rgba(114, 255, 127, 0.34)',
+      trailStart: 'rgba(154, 255, 164, 0.32)',
+      trailEnd: 'rgba(114, 255, 127, 0.68)',
+      trailGlow: 'rgba(114, 255, 127, 0.22)',
+      pulse: 'rgba(191, 255, 154, 0.72)',
+      pulseSoft: 'rgba(236, 255, 227, 0.34)',
+    };
+  }
+
+  if (health > 60) {
+    return {
+      label: '#58f06d',
+      fillStart: '#9dff81',
+      fillMid: '#58f06d',
+      fillEnd: '#1cb851',
+      glow: 'rgba(88, 240, 109, 0.32)',
+      trailStart: 'rgba(140, 255, 154, 0.34)',
+      trailEnd: 'rgba(88, 240, 109, 0.68)',
+      trailGlow: 'rgba(88, 240, 109, 0.22)',
+      pulse: 'rgba(178, 255, 161, 0.7)',
+      pulseSoft: 'rgba(233, 255, 228, 0.32)',
+    };
+  }
+
+  if (health > 30) {
+    return {
+      label: '#ffe600',
+      fillStart: '#fff8a8',
+      fillMid: '#ffe600',
+      fillEnd: '#ffb300',
+      glow: 'rgba(255, 230, 0, 0.32)',
+      trailStart: 'rgba(255, 241, 107, 0.34)',
+      trailEnd: 'rgba(255, 230, 0, 0.7)',
+      trailGlow: 'rgba(255, 230, 0, 0.22)',
+      pulse: 'rgba(255, 243, 140, 0.74)',
+      pulseSoft: 'rgba(255, 250, 214, 0.34)',
+    };
+  }
+
+  return {
+    label: '#ff3366',
+    fillStart: '#ff8ba7',
+    fillMid: '#ff3366',
+    fillEnd: '#c2003f',
+    glow: 'rgba(255, 51, 102, 0.36)',
+    trailStart: 'rgba(255, 142, 170, 0.36)',
+    trailEnd: 'rgba(255, 51, 102, 0.74)',
+    trailGlow: 'rgba(255, 51, 102, 0.26)',
+    pulse: 'rgba(255, 158, 185, 0.78)',
+    pulseSoft: 'rgba(255, 224, 233, 0.36)',
+  };
 }
 
 function formatDeltaPercent(value: number): string {
