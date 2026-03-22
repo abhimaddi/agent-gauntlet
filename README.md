@@ -185,3 +185,8 @@ public/sentinel-screens/<gameId>/step-XX.png
 ## Notes
 
 - Active runtime path is fully Playwright-based and local-first.
+
+## Contributors
+
+- **Abhinav Maddi**
+- **Sai Vinjamuri**
