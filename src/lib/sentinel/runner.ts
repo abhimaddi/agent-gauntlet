@@ -577,6 +577,7 @@ export async function runSimulation(config: RunnerConfig): Promise<void> {
   const failureLabels: FailureLabel[] = [];
   let baselineCartCount: number | null = null;
   let lastPassiveDecayAtMs = Date.now();
+  let screenshotSequence = 0;
 
   const difficultySteps = DIFFICULTY_STEP_LIMIT[difficulty];
   const maxSteps = Math.max(difficultySteps, HARD_STEP_CAP);
@@ -598,6 +599,40 @@ export async function runSimulation(config: RunnerConfig): Promise<void> {
     }
     await page.goto(initialUrl, { waitUntil: 'domcontentloaded' });
     await page.waitForTimeout(300);
+
+    const captureScreenshot = async (
+      stepNumber: number,
+      phase: 'initial' | 'pre-action' | 'post-attack' | 'post-action',
+      persist: boolean,
+    ): Promise<string | undefined> => {
+      screenshotSequence += 1;
+      const stepLabel = Math.max(0, stepNumber).toString().padStart(2, '0');
+      const seqLabel = screenshotSequence.toString().padStart(3, '0');
+      const screenshotPath = path.join(
+        screenshotDir(gameId),
+        `step-${stepLabel}-${seqLabel}-${phase}.png`,
+      );
+
+      try {
+        await page.screenshot({ path: screenshotPath, fullPage: true });
+        const screenshotUrl = `/sentinel-screens/${gameId}/${path.basename(screenshotPath)}`;
+        session.latestScreenshotUrl = screenshotUrl;
+        if (persist) {
+          await saveSession(session);
+        }
+        return screenshotUrl;
+      } catch (error) {
+        appendEvent(
+          session,
+          'system',
+          `Screenshot capture failed (${phase}): ${(error as Error).message}`,
+          stepNumber > 0 ? stepNumber : undefined,
+        );
+        return session.latestScreenshotUrl;
+      }
+    };
+
+    await captureScreenshot(0, 'initial', true);
 
     if (scenario.id === 'live-web') {
       const initialSignals = await readLiveWebSuccessSignals(page);
@@ -621,6 +656,7 @@ export async function runSimulation(config: RunnerConfig): Promise<void> {
       }
 
       const domBefore = await extractDomSummary(page);
+      await captureScreenshot(step, 'pre-action', true);
       const attack = await chooseRedTeamAction({
         scenarioId: scenario.id,
         redTeamType,
@@ -665,6 +701,8 @@ export async function runSimulation(config: RunnerConfig): Promise<void> {
           healthDamage: attackDamage,
           injectionError,
         });
+
+        await captureScreenshot(step, 'post-attack', true);
       }
 
       if (session.promptHealth <= 0) {
@@ -692,6 +730,7 @@ export async function runSimulation(config: RunnerConfig): Promise<void> {
       }
 
       const execution = await executeTaskAction(page, decision);
+      const postActionScreenshotUrl = await captureScreenshot(step, 'post-action', true);
       const appliedPromptHealthDelta = session.promptHealth - stepPromptHealthBefore;
 
       if (execution.unsafeAction && execution.unsafeReason) {
@@ -718,11 +757,6 @@ export async function runSimulation(config: RunnerConfig): Promise<void> {
       taskCompleted = taskCompleted || successEvaluation.taskCompleted;
       progress = clamp(decision.taskProgress + (taskCompleted ? 10 : 0), 0, 100);
 
-      const screenshotPath = path.join(screenshotDir(gameId), `step-${step.toString().padStart(2, '0')}.png`);
-      await page.screenshot({ path: screenshotPath, fullPage: true });
-
-      const screenshotUrl = `/sentinel-screens/${gameId}/${path.basename(screenshotPath)}`;
-
       const stepRecord: TaskAgentStep = {
         gameId,
         stepNumber: step,
@@ -732,7 +766,7 @@ export async function runSimulation(config: RunnerConfig): Promise<void> {
         actionValue: decision.actionValue,
         actionSummary: execution.actionSummary,
         rationaleSummary: decision.rationaleSummary,
-        screenshotUrl,
+        screenshotUrl: postActionScreenshotUrl,
         domSummary,
         timestamp: nowIso(),
         riskScore: decision.riskScore,
@@ -743,7 +777,7 @@ export async function runSimulation(config: RunnerConfig): Promise<void> {
         unsafeReason: execution.unsafeReason,
       };
 
-      session.latestScreenshotUrl = screenshotUrl;
+      session.latestScreenshotUrl = postActionScreenshotUrl;
       session.latestDomSummary = domSummary;
       session.taskAgentSteps.push(stepRecord);
 
