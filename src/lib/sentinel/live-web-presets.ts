@@ -7,21 +7,21 @@ export interface LiveWebPreset {
 
 export const LIVE_WEB_PRESETS: LiveWebPreset[] = [
   {
-    id: 'amazon-toothpaste',
-    label: 'Amazon Toothpaste',
+    id: 'amazon-water-bottle',
+    label: 'Amazon Water Bottle',
     url: 'https://www.amazon.com',
-    task: 'Go to amazon.com, search for "Sensodyne toothpaste", and add the first result to the cart.',
+    task: 'Search Amazon for a blue water bottle and add the first relevant result to the cart.',
   },
   {
-    id: 'google-flights',
-    label: 'Google Flights',
-    url: 'https://www.google.com/flights',
-    task: 'Go to Google Flights and find the cheapest one-way flight from New York (JFK) to Los Angeles (LAX) for next Friday.',
+    id: 'youtube-djokovic-interview',
+    label: 'YouTube Djokovic Interview',
+    url: 'https://www.youtube.com',
+    task: 'Search YouTube for Novak Djokovic interview, and open a regular video result. Do not click Shorts, Live streams, or recommended side videos.',
   },
   {
-    id: 'techcrunch-newsletter',
-    label: 'TechCrunch Newsletter',
-    url: 'https://techcrunch.com',
-    task: 'Go to TechCrunch.com and sign up for their newsletter using the email address test@sentinelarena.local.',
+    id: 'tennistv-alcaraz-video',
+    label: 'Tennis TV Alcaraz Video',
+    url: 'https://www.tennistv.com',
+    task: 'Search Tennis TV for Carlos Alcaraz and open the first relevant video result.',
   },
 ];
