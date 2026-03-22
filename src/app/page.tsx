@@ -1,30 +1,43 @@
 'use client';
 
+import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { AgentDuel } from '@/components/agent-duel';
 import { SentinelHeader } from '@/components/sentinel-header';
 import { DIFFICULTY_OPTIONS, RED_TEAM_OPTIONS, TASK_AGENT_OPTIONS } from '@/lib/sentinel/constants';
-import { formatPercent } from '@/lib/sentinel/format';
 import { LIVE_WEB_PRESETS } from '@/lib/sentinel/live-web-presets';
 import type { Difficulty, RedTeamType, TaskAgentType } from '@/lib/sentinel/types';
 
-interface Metrics {
-  totalEpisodes: number;
-  safeCompletionRate: number;
-  attackSuccessRate: number;
-  recoveryRate: number;
-}
-
-const defaultMetrics: Metrics = {
-  totalEpisodes: 0,
-  safeCompletionRate: 0,
-  attackSuccessRate: 0,
-  recoveryRate: 0,
-};
+const ATTACK_FAMILIES = [
+  {
+    label: 'Prompt Injection',
+    detail: 'Override attempts aimed at bending the task contract.',
+    baseStrength: 78,
+    tone: 'red' as const,
+  },
+  {
+    label: 'UI Deception',
+    detail: 'Fake trust signals, misleading labels, and deceptive calls-to-action.',
+    baseStrength: 56,
+    tone: 'gold' as const,
+  },
+  {
+    label: 'Task Diversion',
+    detail: 'Detours that waste steps or lure the agent off the requested path.',
+    baseStrength: 44,
+    tone: 'gold' as const,
+  },
+  {
+    label: 'Data Exfil Bait',
+    detail: 'Irrelevant prompts for sensitive or unnecessary content.',
+    baseStrength: 33,
+    tone: 'red' as const,
+  },
+];
 
 export default function LobbyPage() {
   const router = useRouter();
-  const scenarioId = 'live-web' as const;
   const [difficulty, setDifficulty] = useState<Difficulty>('medium');
   const [taskAgentType, setTaskAgentType] = useState<TaskAgentType>('llm-policy');
   const [redTeamType, setRedTeamType] = useState<RedTeamType>('llm-red-team');
@@ -35,14 +48,6 @@ export default function LobbyPage() {
   );
   const [startError, setStartError] = useState<string | null>(null);
   const [starting, setStarting] = useState(false);
-  const [metrics, setMetrics] = useState<Metrics>(defaultMetrics);
-
-  useEffect(() => {
-    void fetch('/api/sentinel/metrics')
-      .then((response) => response.json())
-      .then((payload: Metrics) => setMetrics(payload))
-      .catch(() => setMetrics(defaultMetrics));
-  }, []);
 
   useEffect(() => {
     const preset = LIVE_WEB_PRESETS.find((entry) => entry.id === livePresetId);
@@ -57,7 +62,7 @@ export default function LobbyPage() {
     setStartError(null);
     setStarting(true);
     try {
-      if (scenarioId === 'live-web' && !/^https?:\/\//i.test(targetUrl.trim())) {
+      if (!/^https?:\/\//i.test(targetUrl.trim())) {
         setStartError('Live Web mode requires a valid http(s) URL.');
         return;
       }
@@ -68,16 +73,12 @@ export default function LobbyPage() {
           'content-type': 'application/json',
         },
         body: JSON.stringify({
-          scenarioId,
+          scenarioId: 'live-web',
           difficulty,
           taskAgentType,
           redTeamType,
-          ...(scenarioId === 'live-web'
-            ? {
-              targetUrl: targetUrl.trim(),
-              customTask: customTask.trim(),
-            }
-            : {}),
+          targetUrl: targetUrl.trim(),
+          customTask: customTask.trim(),
         }),
       });
 
@@ -95,146 +96,248 @@ export default function LobbyPage() {
     }
   }
 
+  const selectedPreset = LIVE_WEB_PRESETS.find((entry) => entry.id === livePresetId);
+  const difficultyOption = DIFFICULTY_OPTIONS.find((option) => option.value === difficulty);
+  const taskAgentOption = TASK_AGENT_OPTIONS.find((option) => option.value === taskAgentType);
+  const redTeamOption = RED_TEAM_OPTIONS.find((option) => option.value === redTeamType);
+
   return (
-    <main className="sentinel-shell">
+    <main className="sentinel-shell lobby-shell">
       <SentinelHeader />
 
-      <section className="card mb-6 px-5 py-5 md:px-6 md:py-6 fade-in">
-        <p className="chip chip-accent mb-3">Sentinel Arena</p>
-        <h2 className="mb-2 text-4xl font-semibold tracking-tight title-glow">Adversarial evaluation harness for browser agents</h2>
-        <p className="max-w-3xl text-sm text-[var(--text-muted)] md:text-base">
-          Live-web benchmark where a Task Agent navigates real pages while a Red-Team Agent launches prompt injection and deceptive UI attacks.
-          Every run produces structured benchmark and training data with full step and screenshot traces.
-        </p>
-      </section>
+      <section className="ag-hero lobby-hero fade-in">
+        <div className="hero-glow" />
 
-      <section className="mb-6 grid grid-cols-1 gap-3 md:grid-cols-4 fade-in">
-        <MetricCard label="Total Episodes" value={String(metrics.totalEpisodes)} accent="var(--accent)" />
-        <MetricCard label="Safe Completion Rate" value={formatPercent(metrics.safeCompletionRate)} accent="var(--task)" />
-        <MetricCard label="Attack Success Rate" value={formatPercent(metrics.attackSuccessRate)} accent="var(--red)" />
-        <MetricCard label="Recovery Rate" value={formatPercent(metrics.recoveryRate)} accent="var(--ok)" />
-      </section>
+        <div className="lobby-hero-copy">
+          <p className="hero-kicker">Frontier Browser Agent Showdown</p>
+          <h1 className="hero-title">
+            AGENT <span>GAUNTLET</span>
+          </h1>
+          <p className="hero-sub">Adversarial evaluation harness for live browser agents.</p>
+          <p className="hero-deck">
+            Stress-test a sheriff-style browser agent against an outlaw red team on real websites. Set the contract, draw the
+            matchup, and launch straight into the arena.
+          </p>
 
-      <section className="card mb-6 px-5 py-5 md:px-6 md:py-6 fade-in">
-        <h3 className="mb-4 text-xl font-semibold">Live Web Controls</h3>
-
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-          <SelectCard<Difficulty>
-            label="Difficulty"
-            value={difficulty}
-            onChange={setDifficulty}
-            options={DIFFICULTY_OPTIONS}
-          />
-          <SelectCard<TaskAgentType>
-            label="Task-Agent Policy"
-            value={taskAgentType}
-            onChange={setTaskAgentType}
-            options={TASK_AGENT_OPTIONS}
-          />
-          <SelectCard<RedTeamType>
-            label="Red-Team Policy"
-            value={redTeamType}
-            onChange={setRedTeamType}
-            options={RED_TEAM_OPTIONS}
-          />
+          <div className="hero-cta-row">
+            <a href="#duel-setup" className="hero-cta">
+              Prepare the Duel
+            </a>
+            <Link href="/history" className="hero-secondary-link">
+              Review Match History
+            </Link>
+          </div>
         </div>
 
-        <div className="mt-4 grid grid-cols-1 gap-4">
-          <div className="card p-4">
-            <label className="mb-2 block text-xs uppercase tracking-widest text-[var(--text-muted)]">Live Site Preset</label>
-            <select
-              value={livePresetId}
-              onChange={(event) => setLivePresetId(event.target.value)}
-              className="w-full rounded-lg border bg-[var(--panel)] px-3 py-2"
-              style={{ borderColor: 'var(--border)' }}
-            >
-              {LIVE_WEB_PRESETS.map((preset) => (
-                <option key={preset.id} value={preset.id}>
-                  {preset.label}
-                </option>
+        <div className="lobby-hero-stage">
+          <AgentDuel taskAgentType={taskAgentType} redTeamType={redTeamType} />
+        </div>
+      </section>
+
+      <section id="duel-setup" className="card lobby-setup-board fade-in">
+        <div className="lobby-setup-head">
+          <p className="setup-kicker">Duel Setup Board</p>
+          <h2 className="setup-title">One contract. One sheriff. One outlaw.</h2>
+          <p className="setup-copy">Everything needed to launch the live web duel sits in this board. Advanced settings can land here later.</p>
+        </div>
+
+        <div className="lobby-setup-grid">
+          <section className="card lobby-panel lobby-panel-contract">
+            <PanelHeader
+              title="Scenario / Contract"
+              description="Pick the target site and define the exact objective the sheriff has to complete."
+            />
+
+            <div className="lobby-field-grid">
+              <div className="lobby-field">
+                <label className="lobby-field-label" htmlFor="live-preset">
+                  Live Site Preset
+                </label>
+                <select
+                  id="live-preset"
+                  value={livePresetId}
+                  onChange={(event) => setLivePresetId(event.target.value)}
+                  className="lobby-field-control"
+                >
+                  {LIVE_WEB_PRESETS.map((preset) => (
+                    <option key={preset.id} value={preset.id}>
+                      {preset.label}
+                    </option>
+                  ))}
+                  <option value="custom">Custom URL + Task</option>
+                </select>
+                <p className="lobby-field-copy">
+                  {selectedPreset ? 'Loads a ready-made target and contract that you can edit before launch.' : 'Point the duel at any read-only site and write the contract yourself.'}
+                </p>
+              </div>
+
+              <div className="lobby-field">
+                <label className="lobby-field-label" htmlFor="target-url">
+                  Live Target URL
+                </label>
+                <input
+                  id="target-url"
+                  type="url"
+                  value={targetUrl}
+                  onChange={(event) => {
+                    setLivePresetId('custom');
+                    setTargetUrl(event.target.value);
+                  }}
+                  className="lobby-field-control"
+                  placeholder="https://example.com"
+                />
+                <p className="lobby-field-copy">Use read-only targets and avoid auth, account, or checkout flows.</p>
+              </div>
+            </div>
+
+            <div className="lobby-field">
+              <label className="lobby-field-label" htmlFor="task-instructions">
+                Task Instructions
+              </label>
+              <textarea
+                id="task-instructions"
+                value={customTask}
+                onChange={(event) => {
+                  setLivePresetId('custom');
+                  setCustomTask(event.target.value);
+                }}
+                rows={4}
+                className="lobby-field-control lobby-field-textarea"
+              />
+              <p className="lobby-field-copy">This contract is sent directly to the task agent when the duel starts.</p>
+            </div>
+          </section>
+
+          <section className="card lobby-panel">
+            <PanelHeader
+              title="Policies"
+              description="Choose how the sheriff reasons about risk and how the outlaw applies pressure."
+            />
+
+            <SelectField<TaskAgentType>
+              id="task-agent-policy"
+              label="Task Agent Policy"
+              value={taskAgentType}
+              onChange={setTaskAgentType}
+              options={TASK_AGENT_OPTIONS}
+            />
+
+            <SelectField<RedTeamType>
+              id="red-team-policy"
+              label="Red-Team Policy"
+              value={redTeamType}
+              onChange={setRedTeamType}
+              options={RED_TEAM_OPTIONS}
+            />
+
+            <div className="lobby-panel-note">
+              <span className="lobby-panel-note-label">Matchup</span>
+              <p className="lobby-panel-note-copy">
+                {taskAgentOption?.label ?? 'Task Agent'} stays on-contract while {redTeamOption?.label ?? 'Red-Team'} hunts for
+                openings to divert, deceive, or override intent.
+              </p>
+            </div>
+          </section>
+
+          <section className="card lobby-panel">
+            <PanelHeader
+              title="Attack Profile / Difficulty"
+              description="Set the pressure level and inspect the attack families likely to define the match."
+            />
+
+            <SelectField<Difficulty>
+              id="difficulty"
+              label="Difficulty"
+              value={difficulty}
+              onChange={setDifficulty}
+              options={DIFFICULTY_OPTIONS}
+            />
+
+            <div className="attack-family-grid">
+              {ATTACK_FAMILIES.map((family) => (
+                <AttackFamilyCard
+                  key={family.label}
+                  label={family.label}
+                  detail={family.detail}
+                  strength={scaleAttackStrength(family.baseStrength, difficulty)}
+                  tone={family.tone}
+                />
               ))}
-              <option value="custom">Custom URL + Task</option>
-            </select>
-            <p className="mt-2 text-xs text-[var(--text-muted)]">
-              Preset family: Amazon, Google Flights, and TechCrunch.
-            </p>
-          </div>
+            </div>
 
-          <div className="card p-4">
-            <label className="mb-2 block text-xs uppercase tracking-widest text-[var(--text-muted)]">Live Target URL</label>
-            <input
-              type="url"
-              value={targetUrl}
-              onChange={(event) => {
-                setLivePresetId('custom');
-                setTargetUrl(event.target.value);
-              }}
-              className="w-full rounded-lg border bg-[var(--panel)] px-3 py-2"
-              style={{ borderColor: 'var(--border)' }}
-              placeholder="https://example.com"
-            />
-            <p className="mt-2 text-xs text-[var(--text-muted)]">
-              Prefer read-only sites and avoid auth/checkout flows.
-            </p>
-          </div>
-
-          <div className="card p-4">
-            <label className="mb-2 block text-xs uppercase tracking-widest text-[var(--text-muted)]">Live Task</label>
-            <textarea
-              value={customTask}
-              onChange={(event) => {
-                setLivePresetId('custom');
-                setCustomTask(event.target.value);
-              }}
-              rows={3}
-              className="w-full rounded-lg border bg-[var(--panel)] px-3 py-2"
-              style={{ borderColor: 'var(--border)' }}
-            />
-          </div>
+            <div className="lobby-panel-note">
+              <span className="lobby-panel-note-label">Pressure</span>
+              <p className="lobby-panel-note-copy">{difficultyOption?.detail ?? 'Balanced pressure with deceptive UI variants.'}</p>
+            </div>
+          </section>
         </div>
 
-        <div className="mt-6 flex flex-wrap gap-3">
-          <button
-            type="button"
-            disabled={starting}
-            onClick={startSimulation}
-            className="rounded-xl border px-4 py-2 font-medium transition"
-            style={{
-              borderColor: 'var(--accent)',
-              background: 'linear-gradient(120deg, rgba(103, 181, 255, 0.28), rgba(77, 217, 172, 0.22))',
-              color: '#ecf7ff',
-              opacity: starting ? 0.7 : 1,
-            }}
-          >
-            {starting ? 'Launching simulation...' : 'Start Simulation'}
-          </button>
+        <div className="lobby-launch-strip">
+          <div className="lobby-launch-action">
+            <p className="launch-kicker">Ready to draw</p>
+            <button
+              type="button"
+              disabled={starting}
+              onClick={startSimulation}
+              className="startbtn lobby-startbtn"
+              style={{ opacity: starting ? 0.72 : 1 }}
+            >
+              {starting ? '▶ Launching Simulation...' : '▶ Start Simulation'}
+            </button>
+            <p className="launch-copy">
+              Launches the live web duel for {formatTargetLabel(targetUrl)} with {taskAgentOption?.label ?? taskAgentType} versus{' '}
+              {redTeamOption?.label ?? redTeamType}.
+            </p>
+            {startError ? <p className="lobby-start-error">{startError}</p> : null}
+          </div>
         </div>
-
-        {startError ? (
-          <p className="mt-3 text-sm text-[var(--red)]">{startError}</p>
-        ) : null}
       </section>
     </main>
   );
 }
 
-function MetricCard({ label, value, accent }: { label: string; value: string; accent: string }) {
+function PanelHeader({ title, description }: { title: string; description: string }) {
   return (
-    <article className="card p-4">
-      <p className="mb-1 text-sm text-[var(--text-muted)]">{label}</p>
-      <p className="metric-value" style={{ color: accent }}>
-        {value}
-      </p>
+    <div className="lobby-panel-header">
+      <h3 className="lobby-panel-title">{title}</h3>
+      <p className="lobby-panel-copy">{description}</p>
+    </div>
+  );
+}
+
+function AttackFamilyCard({
+  label,
+  detail,
+  strength,
+  tone,
+}: {
+  label: string;
+  detail: string;
+  strength: number;
+  tone: 'gold' | 'red';
+}) {
+  return (
+    <article className={`attack-family-card ${tone === 'red' ? 'is-red' : 'is-gold'}`}>
+      <div className="attack-family-head">
+        <p className="attack-family-title">{label}</p>
+        <span className="attack-family-strength">{strength}%</span>
+      </div>
+      <p className="attack-family-copy">{detail}</p>
+      <div className="attack-family-bar">
+        <div className="attack-family-fill" style={{ width: `${strength}%` }} />
+      </div>
     </article>
   );
 }
 
-function SelectCard<T extends string>({
+function SelectField<T extends string>({
+  id,
   label,
   value,
   onChange,
   options,
 }: {
+  id: string;
   label: string;
   value: T;
   onChange: (value: T) => void;
@@ -243,21 +346,32 @@ function SelectCard<T extends string>({
   const active = options.find((option) => option.value === value);
 
   return (
-    <div className="card p-4">
-      <label className="mb-2 block text-xs uppercase tracking-widest text-[var(--text-muted)]">{label}</label>
-      <select
-        value={value}
-        onChange={(event) => onChange(event.target.value as T)}
-        className="w-full rounded-lg border bg-[var(--panel)] px-3 py-2"
-        style={{ borderColor: 'var(--border)' }}
-      >
+    <div className="lobby-field">
+      <label className="lobby-field-label" htmlFor={id}>
+        {label}
+      </label>
+      <select id={id} value={value} onChange={(event) => onChange(event.target.value as T)} className="lobby-field-control">
         {options.map((option) => (
           <option key={option.value} value={option.value}>
             {option.label}
           </option>
         ))}
       </select>
-      <p className="mt-2 text-sm text-[var(--text-muted)]">{active?.detail}</p>
+      <p className="lobby-field-copy">{active?.detail}</p>
     </div>
   );
+}
+
+function formatTargetLabel(targetUrl: string) {
+  try {
+    const url = new URL(targetUrl);
+    return url.host.replace(/^www\./i, '');
+  } catch {
+    return targetUrl.trim() || 'Custom URL';
+  }
+}
+
+function scaleAttackStrength(baseStrength: number, difficulty: Difficulty) {
+  const multiplier = difficulty === 'easy' ? 0.82 : difficulty === 'hard' ? 1.18 : 1;
+  return Math.max(18, Math.min(96, Math.round(baseStrength * multiplier)));
 }

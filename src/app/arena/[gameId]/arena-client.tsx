@@ -2,15 +2,20 @@
 
 import Link from 'next/link';
 import Image from 'next/image';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
+import { useRouter } from 'next/navigation';
+import { DuelActivityFeed } from '@/components/duel-activity-feed';
 import { SentinelHeader } from '@/components/sentinel-header';
+import { buildRedTeamFeedItems, buildTaskAgentFeedItems } from '@/lib/sentinel/duel-feed';
 import { formatDateTime, formatDuration } from '@/lib/sentinel/format';
 import { VERDICT_COLORS } from '@/lib/sentinel/constants';
 import type { SentinelSession } from '@/lib/sentinel/types';
 
 export function ArenaClient({ gameId }: { gameId: string }) {
+  const router = useRouter();
   const [session, setSession] = useState<SentinelSession | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const didRouteToFinish = useRef(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -59,6 +64,12 @@ export function ArenaClient({ gameId }: { gameId: string }) {
     }
     return session.taskAgentSteps[session.taskAgentSteps.length - 1];
   }, [session]);
+  const latestRedAction = useMemo(() => {
+    if (!session || session.redTeamActions.length === 0) {
+      return null;
+    }
+    return session.redTeamActions[session.redTeamActions.length - 1];
+  }, [session]);
 
   const promptHealth = useMemo(() => {
     if (!session || typeof session.promptHealth !== 'number') {
@@ -66,7 +77,42 @@ export function ArenaClient({ gameId }: { gameId: string }) {
     }
     return Math.max(0, Math.min(100, session.promptHealth));
   }, [session]);
-  const { ghostHealth, healthColor, isCritical, shaking } = usePromptHealthBar(promptHealth);
+  const { ghostHealth, healthPalette, healthColor, isLow, isCritical, shaking, damagePulseKey } =
+    usePromptHealthBar(promptHealth);
+  const taskFeedItems = useMemo(() => buildTaskAgentFeedItems(session?.taskAgentSteps ?? []), [session?.taskAgentSteps]);
+  const redFeedItems = useMemo(
+    () =>
+      buildRedTeamFeedItems(session?.redTeamActions ?? [], {
+        revealPayloads: Boolean(session?.endedAt),
+      }),
+    [session?.endedAt, session?.redTeamActions],
+  );
+  const healthBarStyle = {
+    '--health-fill-start': healthPalette.fillStart,
+    '--health-fill-mid': healthPalette.fillMid,
+    '--health-fill-end': healthPalette.fillEnd,
+    '--health-glow': healthPalette.glow,
+    '--health-trail-start': healthPalette.trailStart,
+    '--health-trail-end': healthPalette.trailEnd,
+    '--health-trail-glow': healthPalette.trailGlow,
+    '--health-pulse': healthPalette.pulse,
+    '--health-pulse-soft': healthPalette.pulseSoft,
+  } as CSSProperties;
+
+  useEffect(() => {
+    if (!session?.endedAt || didRouteToFinish.current) {
+      return;
+    }
+
+    didRouteToFinish.current = true;
+    const timer = setTimeout(() => {
+      router.push(`/finish/${gameId}`);
+    }, 1_100);
+
+    return () => {
+      clearTimeout(timer);
+    };
+  }, [session?.endedAt, gameId, router]);
 
   if (error) {
     return (
@@ -92,14 +138,19 @@ export function ArenaClient({ gameId }: { gameId: string }) {
   }
 
   return (
-    <main className="sentinel-shell">
+    <main className="sentinel-shell arena-shell">
       <SentinelHeader />
 
-      <section className="card mb-4 p-3 md:p-4 fade-in">
+      <section className="card mb-3 p-3 md:p-4 fade-in">
         <div className="mb-2 flex items-center justify-between">
           <p className="text-xs uppercase tracking-widest text-[var(--text-muted)]">Task Prompt Health</p>
           <div className="text-right">
-            <p className="text-mono text-xs font-semibold" style={{ color: healthColor }}>
+            <p
+              className={`arena-health-value text-mono text-xs font-semibold ${
+                isLow ? 'is-low' : ''
+              } ${isCritical ? 'is-critical' : ''}`}
+              style={{ color: healthColor }}
+            >
               {Math.round(promptHealth)}%
             </p>
             <p className="text-[10px] text-[var(--text-muted)]">
@@ -111,37 +162,41 @@ export function ArenaClient({ gameId }: { gameId: string }) {
           </div>
         </div>
         <div
-          className={`relative h-6 overflow-hidden rounded-md border border-[var(--border)] bg-[var(--panel)] ${shaking ? 'animate-pulse' : ''}`}
+          role="progressbar"
+          aria-label="Task prompt health"
+          aria-valuemin={0}
+          aria-valuemax={100}
+          aria-valuenow={Math.round(promptHealth)}
+          className={`arena-health-bar ${shaking ? 'is-hit' : ''} ${isLow ? 'is-low' : ''} ${
+            isCritical ? 'is-critical' : ''
+          }`}
+          style={healthBarStyle}
         >
           {[25, 50, 75].map((mark) => (
             <span
               key={mark}
-              className="absolute bottom-0 top-0 w-px bg-black/35"
+              className="arena-health-mark"
               style={{ left: `${mark}%` }}
             />
           ))}
 
           {ghostHealth > promptHealth ? (
             <span
-              className="absolute bottom-0 left-0 top-0 bg-[var(--red)]/65 transition-[width] duration-700"
+              className="arena-health-ghost"
               style={{ width: `${ghostHealth}%` }}
             />
           ) : null}
 
           <span
-            className={`absolute bottom-0 left-0 top-0 transition-[width,background] duration-200 ${
-              isCritical ? 'animate-pulse' : ''
-            }`}
-            style={{
-              width: `${promptHealth}%`,
-              background: `linear-gradient(90deg, ${healthColor}cc, ${healthColor})`,
-              boxShadow: `0 0 18px ${healthColor}66`,
-            }}
+            className="arena-health-fill"
+            style={{ width: `${promptHealth}%` }}
           />
+          {damagePulseKey > 0 ? <span key={damagePulseKey} className="arena-health-hit" /> : null}
+          <span className="arena-health-frame" />
         </div>
       </section>
 
-      <section className="card mb-4 p-4 md:p-5 fade-in">
+      <section className="card mb-3 p-4 md:p-4 fade-in">
         <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <div>
             <p className="text-xs uppercase tracking-widest text-[var(--text-muted)]">Game {session.gameId}</p>
@@ -169,84 +224,148 @@ export function ArenaClient({ gameId }: { gameId: string }) {
         </div>
       </section>
 
-      <section className="grid grid-cols-1 gap-4 lg:grid-cols-[1.3fr_1fr] fade-in">
-        <article className="card p-3 md:p-4">
-          <p className="mb-2 text-xs uppercase tracking-widest text-[var(--text-muted)]">Live Browser Viewport</p>
-          {session.latestScreenshotUrl ? (
-            <Image
-              key={session.latestScreenshotUrl}
-              src={session.latestScreenshotUrl}
-              alt="Latest arena screenshot"
-              width={1360}
-              height={900}
-              unoptimized
-              className="w-full rounded-lg border border-[var(--border)] object-cover transition duration-300"
-            />
-          ) : (
-            <div className="grid h-[360px] place-items-center rounded-lg border border-dashed border-[var(--border)] text-sm text-[var(--text-muted)]">
-              Waiting for first screenshot...
+      <section className="arena-showdown-grid fade-in">
+        <aside className="card arena-side-rail arena-side-rail-task order-2 xl:order-1">
+          <div className="arena-side-rail-shell">
+            <div className="arena-side-rail-head">
+              <p className="arena-side-rail-kicker">Sheriff Rail</p>
+              <h3 className="arena-side-rail-title">Task Agent</h3>
+              <p className="arena-side-rail-copy">Contract focus, cautious execution, and rationale notes.</p>
             </div>
-          )}
-        </article>
 
-        <article className="card p-4">
-          <p className="mb-2 text-xs uppercase tracking-widest text-[var(--text-muted)]">Live Match State</p>
-          <div className="mb-4 space-y-2 text-sm">
-            <StateRow label="Current task" value={session.task} />
-            <StateRow label="Current red-team attack" value={session.activeAttackName ?? 'None'} />
-            <StateRow label="Risk score" value={latestStep ? String(latestStep.riskScore) : 'N/A'} />
-            <StateRow label="Task progress" value={latestStep ? `${latestStep.taskProgress}%` : '0%'} />
-            <StateRow label="Safety score" value={`${session.safetyScore}`} />
-            <StateRow label="Duration" value={formatDuration(session.durationSeconds)} />
+            <div className="arena-side-rail-stats">
+              <StatusBox label="Status" value={session.currentTaskAgentStatus} color="var(--task)" />
+              <StatusBox
+                label="Progress"
+                value={latestStep ? `${latestStep.taskProgress}%` : '0%'}
+                color="var(--ok)"
+              />
+              <StatusBox label="Risk" value={latestStep ? String(latestStep.riskScore) : 'N/A'} color="var(--warning)" />
+              <StatusBox label="Recovery" value={String(session.recoveryOccurred)} color="var(--accent)" />
+            </div>
+
+            <div className="arena-side-rail-note">
+              <p className="arena-side-rail-note-label">Latest move</p>
+              <p className="arena-side-rail-note-value">
+                {latestStep?.actionSummary ?? 'Standing by for the first move.'}
+              </p>
+            </div>
+
+            <div className="arena-side-rail-feed">
+              <DuelActivityFeed
+                title="Task Feed"
+                subtitle="Compact field notes. Open a row for rationale, inputs, and risk context."
+                tone="task"
+                items={taskFeedItems}
+                emptyMessage="No task-agent step recorded yet."
+                layout="rail"
+              />
+            </div>
+          </div>
+        </aside>
+
+        <article className="card arena-stage-card order-1 xl:order-2">
+          <div className="arena-stage-head">
+            <div>
+              <p className="arena-side-rail-kicker">Duel Ground</p>
+              <h3 className="arena-stage-title">Live Browser Viewport</h3>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <span className="chip chip-task">Prompt Health {Math.round(promptHealth)}%</span>
+              <span className="chip chip-accent">{session.endedAt ? 'Post-Match Lock' : 'Auto-refreshing'}</span>
+            </div>
           </div>
 
-          <div className="mb-4 grid grid-cols-2 gap-2 text-xs">
-            <StatusBox label="Task Agent" value={session.currentTaskAgentStatus} color="var(--task)" />
-            <StatusBox label="Red-Team" value={session.currentRedTeamStatus} color="var(--red)" />
-            <StatusBox label="Task Completed" value={String(session.taskCompleted)} color="var(--ok)" />
-            <StatusBox label="Attack Succeeded" value={String(session.attackSucceeded)} color="var(--warning)" />
+          <div className="arena-stage-frame">
+            <div className="arena-stage-scroll">
+              {session.latestScreenshotUrl ? (
+                <Image
+                  key={session.latestScreenshotUrl}
+                  src={session.latestScreenshotUrl}
+                  alt="Latest arena screenshot"
+                  width={1360}
+                  height={900}
+                  unoptimized
+                  className="arena-stage-image"
+                />
+              ) : (
+                <div className="arena-stage-placeholder">
+                  Waiting for first screenshot...
+                </div>
+              )}
+            </div>
           </div>
 
-          <h3 className="mb-2 text-sm font-semibold">Step Timeline</h3>
-          <ol className="max-h-[260px] space-y-2 overflow-auto pr-1 text-sm">
-            {session.taskAgentSteps.map((step) => (
-              <li key={step.stepNumber} className="rounded-lg border border-[var(--border)] bg-[var(--panel)]/70 p-2">
-                <p className="text-xs text-[var(--text-muted)]">Step {step.stepNumber}</p>
-                <p className="font-medium">{step.actionSummary}</p>
-                <p className="text-xs text-[var(--text-muted)]">{step.rationaleSummary}</p>
-                <p className="text-[10px] text-[var(--text-muted)]">
-                  Prompt Health {typeof step.promptHealth === 'number' ? step.promptHealth : promptHealth}% (
-                  {typeof step.promptHealthDelta === 'number' ? formatDeltaPercent(step.promptHealthDelta) : '0%'})
-                </p>
-              </li>
-            ))}
-          </ol>
-
-          <h3 className="mb-2 mt-4 text-sm font-semibold">Red-Team Timeline</h3>
-          <ol className="max-h-[220px] space-y-2 overflow-auto pr-1 text-sm">
-            {session.redTeamActions.length === 0 ? (
-              <li className="rounded-lg border border-[var(--border)] bg-[var(--panel)]/70 p-2 text-xs text-[var(--text-muted)]">
-                No red-team action recorded yet.
-              </li>
-            ) : (
-              session.redTeamActions.map((action) => (
-                <li
-                  key={`${action.actionNumber}-${action.timestamp}`}
-                  className="rounded-lg border border-[var(--border)] bg-[var(--panel)]/70 p-2"
-                >
-                  <p className="text-xs text-[var(--text-muted)]">Attack {action.actionNumber}</p>
-                  <p className="font-medium">
-                    {action.attackFamily} • {action.attackName}
-                  </p>
-                  <p className="text-xs text-[var(--text-muted)]">{action.description}</p>
-                  <p className="text-[10px] text-[var(--text-muted)]">
-                    success={String(action.success)} judge={action.judgeVerdict}
-                  </p>
-                </li>
-              ))
-            )}
-          </ol>
+          <div className="arena-stage-stats">
+            <ArenaStageStat label="Current Task" value={session.task} tone="task" wide scrollable />
+            <ArenaStageStat
+              label="Current Red-Team Attack"
+              value={session.activeAttackName ?? latestRedAction?.attackName ?? 'None'}
+              tone="red"
+              wide
+              scrollable
+            />
+            <ArenaStageStat label="Risk Score" value={latestStep ? String(latestStep.riskScore) : 'N/A'} />
+            <ArenaStageStat label="Task Progress" value={latestStep ? `${latestStep.taskProgress}%` : '0%'} tone="task" />
+            <ArenaStageStat label="Safety Score" value={`${session.safetyScore}`} />
+            <ArenaStageStat label="Duration" value={formatDuration(session.durationSeconds)} />
+          </div>
         </article>
+
+        <aside className="card arena-side-rail arena-side-rail-red order-3">
+          <div className="arena-side-rail-shell">
+            <div className="arena-side-rail-head">
+              <p className="arena-side-rail-kicker">Outlaw Rail</p>
+              <h3 className="arena-side-rail-title">Red-Team</h3>
+              <p className="arena-side-rail-copy">Injected pressure, attack verdicts, and payload inspection.</p>
+            </div>
+
+            <div className="arena-side-rail-stats">
+              <StatusBox label="Status" value={session.currentRedTeamStatus} color="var(--red)" />
+              <StatusBox
+                label="Family"
+                value={
+                  session.activeAttackFamily
+                    ? formatAttackFamilyLabel(session.activeAttackFamily)
+                    : latestRedAction
+                      ? formatAttackFamilyLabel(latestRedAction.attackFamily)
+                      : 'None'
+                }
+                color="var(--warning)"
+              />
+              <StatusBox
+                label="Result"
+                value={latestRedAction ? summarizeAttackResult(latestRedAction.success, latestRedAction.judgeVerdict) : 'Idle'}
+                color="var(--red)"
+              />
+              <StatusBox label="Payloads" value={session.endedAt ? 'Unlocked' : 'After match'} color="var(--accent)" />
+            </div>
+
+            <div className="arena-side-rail-note">
+              <p className="arena-side-rail-note-label">Current pressure</p>
+              <p className="arena-side-rail-note-value">
+                {latestRedAction
+                  ? compactSentence(latestRedAction.judgeVerdict, 120)
+                  : 'Waiting for the first injected ploy.'}
+              </p>
+            </div>
+
+            <div className="arena-side-rail-feed">
+              <DuelActivityFeed
+                title="Red-Team Feed"
+                subtitle={
+                  session.endedAt
+                    ? 'Match complete. Open a row to inspect the injected payload and outcome.'
+                    : 'Live duel view. Open a row for attack notes while the payload stays tucked away.'
+                }
+                tone="red"
+                items={redFeedItems}
+                emptyMessage="No red-team action recorded yet."
+                layout="rail"
+              />
+            </div>
+          </div>
+        </aside>
       </section>
 
       <section className="card mt-4 p-4 fade-in">
@@ -266,11 +385,11 @@ export function ArenaClient({ gameId }: { gameId: string }) {
         </div>
 
         <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
-          <div className="rounded-lg border border-[var(--border)] bg-[var(--panel)]/70 p-3">
+          <div className="arena-log-panel">
             <p className="mb-2 text-xs uppercase tracking-widest text-[var(--text-muted)]">Events</p>
             <ul className="log-list space-y-2 text-sm">
               {session.eventsLog.map((event) => (
-                <li key={event.id} className="rounded-md border border-[var(--border)]/60 p-2">
+                <li key={event.id} className="arena-log-entry">
                   <p className="text-xs text-[var(--text-muted)]">{formatDateTime(event.timestamp)}</p>
                   <p>{event.message}</p>
                 </li>
@@ -278,11 +397,11 @@ export function ArenaClient({ gameId }: { gameId: string }) {
             </ul>
           </div>
 
-          <div className="rounded-lg border border-[var(--border)] bg-[var(--panel)]/70 p-3">
+          <div className="arena-log-panel">
             <p className="mb-2 text-xs uppercase tracking-widest text-[var(--text-muted)]">Task-Agent rationale summary</p>
             <ul className="log-list space-y-2 text-sm">
               {session.taskAgentSteps.map((step) => (
-                <li key={`rationale-${step.stepNumber}`} className="rounded-md border border-[var(--border)]/60 p-2">
+                <li key={`rationale-${step.stepNumber}`} className="arena-log-entry">
                   <p className="text-xs text-[var(--text-muted)]">Step {step.stepNumber}</p>
                   <p>{step.rationaleSummary}</p>
                 </li>
@@ -295,39 +414,73 @@ export function ArenaClient({ gameId }: { gameId: string }) {
   );
 }
 
-function StateRow({ label, value }: { label: string; value: string }) {
+function StatusBox({ label, value, color }: { label: string; value: string; color: string }) {
   return (
-    <div className="flex items-start justify-between gap-2">
-      <span className="text-[var(--text-muted)]">{label}</span>
-      <span className="text-right">{value}</span>
+    <div className="arena-status-box" style={{ '--status-color': color } as CSSProperties}>
+      <p className="arena-status-box-label" style={{ color }}>
+        {label}
+      </p>
+      <p className="arena-status-box-value">{value}</p>
     </div>
   );
 }
 
-function StatusBox({ label, value, color }: { label: string; value: string; color: string }) {
+function ArenaStageStat({
+  label,
+  value,
+  tone = 'neutral',
+  wide = false,
+  scrollable = false,
+}: {
+  label: string;
+  value: string;
+  tone?: 'neutral' | 'task' | 'red';
+  wide?: boolean;
+  scrollable?: boolean;
+}) {
   return (
-    <div className="rounded-lg border p-2" style={{ borderColor: `${color}66`, background: `${color}15` }}>
-      <p className="text-[10px] uppercase tracking-widest" style={{ color }}>
-        {label}
-      </p>
-      <p className="mt-1 text-sm font-medium">{value}</p>
+    <div
+      className={`arena-stage-stat ${wide ? 'is-wide' : ''} ${scrollable ? 'is-scrollable' : ''} ${
+        tone !== 'neutral' ? `is-${tone}` : ''
+      }`}
+    >
+      <p className="arena-stage-stat-label">{label}</p>
+      <div className="arena-stage-stat-value-wrap">
+        <p className="arena-stage-stat-value">{value}</p>
+      </div>
     </div>
   );
 }
+
+type PromptHealthPalette = {
+  label: string;
+  fillStart: string;
+  fillMid: string;
+  fillEnd: string;
+  glow: string;
+  trailStart: string;
+  trailEnd: string;
+  trailGlow: string;
+  pulse: string;
+  pulseSoft: string;
+};
 
 function usePromptHealthBar(health: number) {
   const [ghostHealth, setGhostHealth] = useState(health);
   const [shaking, setShaking] = useState(false);
+  const [damagePulseKey, setDamagePulseKey] = useState(0);
   const previous = useRef(health);
   const ghostTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     let cancelled = false;
 
+    if (ghostTimer.current) {
+      clearTimeout(ghostTimer.current);
+      ghostTimer.current = null;
+    }
+
     if (health >= previous.current) {
-      if (ghostTimer.current) {
-        clearTimeout(ghostTimer.current);
-      }
       previous.current = health;
       const syncFrame = requestAnimationFrame(() => {
         if (!cancelled) {
@@ -344,6 +497,7 @@ function usePromptHealthBar(health: number) {
     previous.current = health;
     const shakeFrame = requestAnimationFrame(() => {
       if (!cancelled) {
+        setDamagePulseKey((value) => value + 1);
         setShaking(true);
       }
     });
@@ -351,16 +505,13 @@ function usePromptHealthBar(health: number) {
       if (!cancelled) {
         setShaking(false);
       }
-    }, 320);
-
-    if (ghostTimer.current) {
-      clearTimeout(ghostTimer.current);
-    }
+    }, 240);
     ghostTimer.current = setTimeout(() => {
       if (!cancelled) {
         setGhostHealth(health);
       }
-    }, 700);
+      ghostTimer.current = null;
+    }, 180);
 
     return () => {
       cancelled = true;
@@ -368,16 +519,107 @@ function usePromptHealthBar(health: number) {
       clearTimeout(shakeTimer);
       if (ghostTimer.current) {
         clearTimeout(ghostTimer.current);
+        ghostTimer.current = null;
       }
     };
   }, [health]);
 
-  const healthColor = health > 60 ? '#4dd9ac' : health > 30 ? '#ffc266' : '#ff5d7d';
+  const healthPalette = getPromptHealthPalette(health);
+  const healthColor = healthPalette.label;
+  const isLow = health <= 40;
   const isCritical = health <= 25;
 
-  return { ghostHealth, healthColor, isCritical, shaking };
+  return { ghostHealth, healthPalette, healthColor, isLow, isCritical, shaking, damagePulseKey };
+}
+
+function getPromptHealthPalette(health: number): PromptHealthPalette {
+  if (health >= 100) {
+    return {
+      label: '#72ff7f',
+      fillStart: '#baff9a',
+      fillMid: '#72ff7f',
+      fillEnd: '#20d95a',
+      glow: 'rgba(114, 255, 127, 0.34)',
+      trailStart: 'rgba(154, 255, 164, 0.32)',
+      trailEnd: 'rgba(114, 255, 127, 0.68)',
+      trailGlow: 'rgba(114, 255, 127, 0.22)',
+      pulse: 'rgba(191, 255, 154, 0.72)',
+      pulseSoft: 'rgba(236, 255, 227, 0.34)',
+    };
+  }
+
+  if (health > 60) {
+    return {
+      label: '#58f06d',
+      fillStart: '#9dff81',
+      fillMid: '#58f06d',
+      fillEnd: '#1cb851',
+      glow: 'rgba(88, 240, 109, 0.32)',
+      trailStart: 'rgba(140, 255, 154, 0.34)',
+      trailEnd: 'rgba(88, 240, 109, 0.68)',
+      trailGlow: 'rgba(88, 240, 109, 0.22)',
+      pulse: 'rgba(178, 255, 161, 0.7)',
+      pulseSoft: 'rgba(233, 255, 228, 0.32)',
+    };
+  }
+
+  if (health > 30) {
+    return {
+      label: '#ffe600',
+      fillStart: '#fff8a8',
+      fillMid: '#ffe600',
+      fillEnd: '#ffb300',
+      glow: 'rgba(255, 230, 0, 0.32)',
+      trailStart: 'rgba(255, 241, 107, 0.34)',
+      trailEnd: 'rgba(255, 230, 0, 0.7)',
+      trailGlow: 'rgba(255, 230, 0, 0.22)',
+      pulse: 'rgba(255, 243, 140, 0.74)',
+      pulseSoft: 'rgba(255, 250, 214, 0.34)',
+    };
+  }
+
+  return {
+    label: '#ff3366',
+    fillStart: '#ff8ba7',
+    fillMid: '#ff3366',
+    fillEnd: '#c2003f',
+    glow: 'rgba(255, 51, 102, 0.36)',
+    trailStart: 'rgba(255, 142, 170, 0.36)',
+    trailEnd: 'rgba(255, 51, 102, 0.74)',
+    trailGlow: 'rgba(255, 51, 102, 0.26)',
+    pulse: 'rgba(255, 158, 185, 0.78)',
+    pulseSoft: 'rgba(255, 224, 233, 0.36)',
+  };
 }
 
 function formatDeltaPercent(value: number): string {
   return `${Math.trunc(value)}%`;
+}
+
+function formatAttackFamilyLabel(value: string): string {
+  return value.replace(/_/g, ' ');
+}
+
+function summarizeAttackResult(success: boolean, judgeVerdict: string): string {
+  if (success) {
+    return 'Landed';
+  }
+
+  if (/failed/i.test(judgeVerdict)) {
+    return 'Blocked';
+  }
+
+  if (/pending/i.test(judgeVerdict)) {
+    return 'Pending';
+  }
+
+  return compactSentence(judgeVerdict, 48);
+}
+
+function compactSentence(value: string, limit: number): string {
+  const normalized = value.replace(/\s+/g, ' ').trim();
+  if (normalized.length <= limit) {
+    return normalized;
+  }
+  return `${normalized.slice(0, Math.max(0, limit - 1)).trimEnd()}…`;
 }
