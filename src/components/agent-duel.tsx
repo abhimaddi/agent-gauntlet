@@ -69,8 +69,10 @@ export function AgentDuel({
           <div className="agent-wrap">
             <SheriffPortrait className="agent-portrait" />
           </div>
-          <div className="agent-name">{taskAgentType}</div>
-          <div className="agent-policy">objective runner</div>
+          <div className="agent-meta">
+            <div className="agent-name agent-model-label">{taskAgentType}</div>
+            <div className="agent-policy agent-role-badge">objective runner</div>
+          </div>
         </div>
 
         <div className="vs-center">
@@ -84,8 +86,10 @@ export function AgentDuel({
           <div className="agent-wrap right-agent">
             <OutlawPortrait className="agent-portrait" />
           </div>
-          <div className="agent-name">{redTeamType}</div>
-          <div className="agent-policy red">attack planner</div>
+          <div className="agent-meta">
+            <div className="agent-name agent-model-label">{redTeamType}</div>
+            <div className="agent-policy agent-role-badge red">attack planner</div>
+          </div>
         </div>
       </div>
 
