@@ -4,7 +4,9 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { useRouter } from 'next/navigation';
+import { DuelActivityFeed } from '@/components/duel-activity-feed';
 import { SentinelHeader } from '@/components/sentinel-header';
+import { buildRedTeamFeedItems, buildTaskAgentFeedItems } from '@/lib/sentinel/duel-feed';
 import { formatDateTime, formatDuration } from '@/lib/sentinel/format';
 import { VERDICT_COLORS } from '@/lib/sentinel/constants';
 import type { SentinelSession } from '@/lib/sentinel/types';
@@ -71,6 +73,14 @@ export function ArenaClient({ gameId }: { gameId: string }) {
   }, [session]);
   const { ghostHealth, healthPalette, healthColor, isLow, isCritical, shaking, damagePulseKey } =
     usePromptHealthBar(promptHealth);
+  const taskFeedItems = useMemo(() => buildTaskAgentFeedItems(session?.taskAgentSteps ?? []), [session?.taskAgentSteps]);
+  const redFeedItems = useMemo(
+    () =>
+      buildRedTeamFeedItems(session?.redTeamActions ?? [], {
+        revealPayloads: Boolean(session?.endedAt),
+      }),
+    [session?.endedAt, session?.redTeamActions],
+  );
   const healthBarStyle = {
     '--health-fill-start': healthPalette.fillStart,
     '--health-fill-mid': healthPalette.fillMid,
@@ -246,45 +256,27 @@ export function ArenaClient({ gameId }: { gameId: string }) {
             <StatusBox label="Attack Succeeded" value={String(session.attackSucceeded)} color="var(--warning)" />
           </div>
 
-          <h3 className="mb-2 text-sm font-semibold">Step Timeline</h3>
-          <ol className="max-h-[260px] space-y-2 overflow-auto pr-1 text-sm">
-            {session.taskAgentSteps.map((step) => (
-              <li key={step.stepNumber} className="rounded-lg border border-[var(--border)] bg-[var(--panel)]/70 p-2">
-                <p className="text-xs text-[var(--text-muted)]">Step {step.stepNumber}</p>
-                <p className="font-medium">{step.actionSummary}</p>
-                <p className="text-xs text-[var(--text-muted)]">{step.rationaleSummary}</p>
-                <p className="text-[10px] text-[var(--text-muted)]">
-                  Prompt Health {typeof step.promptHealth === 'number' ? step.promptHealth : promptHealth}% (
-                  {typeof step.promptHealthDelta === 'number' ? formatDeltaPercent(step.promptHealthDelta) : '0%'})
-                </p>
-              </li>
-            ))}
-          </ol>
+          <div className="space-y-4">
+            <DuelActivityFeed
+              title="Task Agent Feed"
+              subtitle="Compact field notes. Open a row for rationale, inputs, and risk context."
+              tone="task"
+              items={taskFeedItems}
+              emptyMessage="No task-agent step recorded yet."
+            />
 
-          <h3 className="mb-2 mt-4 text-sm font-semibold">Red-Team Timeline</h3>
-          <ol className="max-h-[220px] space-y-2 overflow-auto pr-1 text-sm">
-            {session.redTeamActions.length === 0 ? (
-              <li className="rounded-lg border border-[var(--border)] bg-[var(--panel)]/70 p-2 text-xs text-[var(--text-muted)]">
-                No red-team action recorded yet.
-              </li>
-            ) : (
-              session.redTeamActions.map((action) => (
-                <li
-                  key={`${action.actionNumber}-${action.timestamp}`}
-                  className="rounded-lg border border-[var(--border)] bg-[var(--panel)]/70 p-2"
-                >
-                  <p className="text-xs text-[var(--text-muted)]">Attack {action.actionNumber}</p>
-                  <p className="font-medium">
-                    {action.attackFamily} • {action.attackName}
-                  </p>
-                  <p className="text-xs text-[var(--text-muted)]">{action.description}</p>
-                  <p className="text-[10px] text-[var(--text-muted)]">
-                    success={String(action.success)} judge={action.judgeVerdict}
-                  </p>
-                </li>
-              ))
-            )}
-          </ol>
+            <DuelActivityFeed
+              title="Red-Team Feed"
+              subtitle={
+                session.endedAt
+                  ? 'Match complete. Open a row to inspect the injected payload and outcome.'
+                  : 'Live duel view. Open a row for attack notes while the payload stays tucked away.'
+              }
+              tone="red"
+              items={redFeedItems}
+              emptyMessage="No red-team action recorded yet."
+            />
+          </div>
         </article>
       </section>
 

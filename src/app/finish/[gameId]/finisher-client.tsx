@@ -3,8 +3,10 @@
 import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 import type { CSSProperties } from 'react';
+import { DuelActivityFeed } from '@/components/duel-activity-feed';
 import { SentinelHeader } from '@/components/sentinel-header';
 import { VERDICT_COLORS } from '@/lib/sentinel/constants';
+import { buildRedTeamFeedItems, buildTaskAgentFeedItems } from '@/lib/sentinel/duel-feed';
 import { formatDateTime, formatDuration } from '@/lib/sentinel/format';
 import type { SentinelSession } from '@/lib/sentinel/types';
 
@@ -78,6 +80,14 @@ export function FinisherClient({ gameId }: { gameId: string }) {
 
     return 'standoff';
   }, [session]);
+  const taskFeedItems = useMemo(() => buildTaskAgentFeedItems(session?.taskAgentSteps ?? []), [session?.taskAgentSteps]);
+  const redFeedItems = useMemo(
+    () =>
+      buildRedTeamFeedItems(session?.redTeamActions ?? [], {
+        revealPayloads: Boolean(session?.endedAt),
+      }),
+    [session?.endedAt, session?.redTeamActions],
+  );
 
   async function exportPoster() {
     const paper = document.getElementById('lobby-bounty-paper');
@@ -262,6 +272,28 @@ export function FinisherClient({ gameId }: { gameId: string }) {
             Open Replay
           </Link>
         </aside>
+      </section>
+
+      <section className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-2 fade-in">
+        <article className="card p-4">
+          <DuelActivityFeed
+            title="Task Agent Feed"
+            subtitle="Post-match ledger. Open a row for rationale, action input, and progress impact."
+            tone="task"
+            items={taskFeedItems}
+            emptyMessage="No task-agent step recorded."
+          />
+        </article>
+
+        <article className="card p-4">
+          <DuelActivityFeed
+            title="Red-Team Feed"
+            subtitle="Match complete. Open a row to inspect the injected payload, family, and verdict."
+            tone="red"
+            items={redFeedItems}
+            emptyMessage="No red-team action recorded."
+          />
+        </article>
       </section>
     </main>
   );

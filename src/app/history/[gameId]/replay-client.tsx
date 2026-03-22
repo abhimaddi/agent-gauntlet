@@ -3,7 +3,9 @@
 import Link from 'next/link';
 import Image from 'next/image';
 import { useEffect, useMemo, useState } from 'react';
+import { DuelActivityFeed } from '@/components/duel-activity-feed';
 import { SentinelHeader } from '@/components/sentinel-header';
+import { buildRedTeamFeedItems, buildTaskAgentFeedItems } from '@/lib/sentinel/duel-feed';
 import { formatDateTime, formatDuration } from '@/lib/sentinel/format';
 import type { SentinelSession } from '@/lib/sentinel/types';
 
@@ -27,10 +29,18 @@ export function ReplayClient({ gameId }: { gameId: string }) {
     }
     return session.taskAgentSteps[Math.min(stepIndex, session.taskAgentSteps.length - 1)];
   }, [session, stepIndex]);
+  const taskFeedItems = useMemo(() => buildTaskAgentFeedItems(session?.taskAgentSteps ?? []), [session?.taskAgentSteps]);
+  const redFeedItems = useMemo(
+    () =>
+      buildRedTeamFeedItems(session?.redTeamActions ?? [], {
+        revealPayloads: Boolean(session?.endedAt),
+      }),
+    [session?.endedAt, session?.redTeamActions],
+  );
 
   if (!session) {
     return (
-      <main className="sentinel-shell">
+      <main className="sentinel-shell no-halo">
         <SentinelHeader />
         <section className="card p-6">Loading replay...</section>
       </main>
@@ -38,7 +48,7 @@ export function ReplayClient({ gameId }: { gameId: string }) {
   }
 
   return (
-    <main className="sentinel-shell">
+    <main className="sentinel-shell no-halo">
       <SentinelHeader />
 
       <section className="card mb-4 p-4 fade-in">
@@ -131,32 +141,23 @@ export function ReplayClient({ gameId }: { gameId: string }) {
 
       <section className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-2 fade-in">
         <article className="card p-4">
-          <h3 className="mb-2 text-lg font-semibold">Task-Agent steps</h3>
-          <ul className="log-list space-y-2 text-sm">
-            {session.taskAgentSteps.map((entry) => (
-              <li key={entry.stepNumber} className="rounded-lg border border-[var(--border)]/70 bg-[var(--panel)]/70 p-2">
-                <p className="text-xs text-[var(--text-muted)]">Step {entry.stepNumber}</p>
-                <p>{entry.actionSummary}</p>
-                <p className="text-xs text-[var(--text-muted)]">{entry.rationaleSummary}</p>
-              </li>
-            ))}
-          </ul>
+          <DuelActivityFeed
+            title="Task Agent Feed"
+            subtitle="Compact replay ledger. Open a row for rationale, target input, and progress context."
+            tone="task"
+            items={taskFeedItems}
+            emptyMessage="No task-agent step recorded."
+          />
         </article>
 
         <article className="card p-4">
-          <h3 className="mb-2 text-lg font-semibold">Red-Team actions</h3>
-          <ul className="log-list space-y-2 text-sm">
-            {session.redTeamActions.map((action) => (
-              <li key={`${action.actionNumber}-${action.timestamp}`} className="rounded-lg border border-[var(--border)]/70 bg-[var(--panel)]/70 p-2">
-                <p className="text-xs text-[var(--text-muted)]">Action {action.actionNumber}</p>
-                <p>
-                  {action.attackFamily} • {action.attackName}
-                </p>
-                <p className="text-xs text-[var(--text-muted)]">{action.description}</p>
-                <p className="text-xs text-[var(--text-muted)]">Judge: {action.judgeVerdict}</p>
-              </li>
-            ))}
-          </ul>
+          <DuelActivityFeed
+            title="Red-Team Feed"
+            subtitle="Replay inspection mode. Open a row to inspect the injection payload and verdict."
+            tone="red"
+            items={redFeedItems}
+            emptyMessage="No red-team action recorded."
+          />
         </article>
       </section>
     </main>
