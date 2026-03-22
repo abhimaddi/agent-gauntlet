@@ -24,15 +24,18 @@ function normalizeLiveUrl(rawUrl: string | undefined): string | null {
 export async function POST(request: Request) {
   try {
     const body = (await request.json()) as Partial<StartSimulationRequest>;
-    const scenarioId = body.scenarioId ?? 'live-web';
+    const scenarioId = 'live-web';
     const difficulty = body.difficulty ?? 'easy';
     const taskAgentType = body.taskAgentType ?? 'llm-policy';
     const redTeamType = body.redTeamType ?? 'llm-red-team';
 
     const scenario = getScenario(scenarioId);
-    const targetUrl = scenarioId === 'live-web' ? normalizeLiveUrl(body.targetUrl) : null;
-    if (scenarioId === 'live-web' && !targetUrl) {
-      return NextResponse.json({ ok: false, error: 'A valid http(s) targetUrl is required for Live Web mode.' }, { status: 400 });
+    const targetUrl = normalizeLiveUrl(body.targetUrl);
+    if (!targetUrl) {
+      return NextResponse.json(
+        { ok: false, error: 'A valid http(s) targetUrl is required for Live Web mode.' },
+        { status: 400 },
+      );
     }
 
     const task =

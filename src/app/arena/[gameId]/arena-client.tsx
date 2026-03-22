@@ -103,7 +103,10 @@ export function ArenaClient({ gameId }: { gameId: string }) {
               {Math.round(promptHealth)}%
             </p>
             <p className="text-[10px] text-[var(--text-muted)]">
-              Last change {latestStep && typeof latestStep.promptHealthDelta === 'number' ? `${latestStep.promptHealthDelta}%` : '0%'}
+              Last change{' '}
+              {latestStep && typeof latestStep.promptHealthDelta === 'number'
+                ? formatDeltaPercent(latestStep.promptHealthDelta)
+                : '0%'}
             </p>
           </div>
         </div>
@@ -213,7 +216,7 @@ export function ArenaClient({ gameId }: { gameId: string }) {
                 <p className="text-xs text-[var(--text-muted)]">{step.rationaleSummary}</p>
                 <p className="text-[10px] text-[var(--text-muted)]">
                   Prompt Health {typeof step.promptHealth === 'number' ? step.promptHealth : promptHealth}% (
-                  {typeof step.promptHealthDelta === 'number' ? step.promptHealthDelta : 0}%)
+                  {typeof step.promptHealthDelta === 'number' ? formatDeltaPercent(step.promptHealthDelta) : '0%'})
                 </p>
               </li>
             ))}
@@ -373,4 +376,8 @@ function usePromptHealthBar(health: number) {
   const isCritical = health <= 25;
 
   return { ghostHealth, healthColor, isCritical, shaking };
+}
+
+function formatDeltaPercent(value: number): string {
+  return `${Math.trunc(value)}%`;
 }
