@@ -374,8 +374,9 @@ flowchart LR
 
 Current contributors:
 
-- **Abhinav**
-- **Sai**
+- **Abhinav Maddi**
+- **Sai Vinjamuri**
+- **Chandu Nallamothu**
 
 If you want to collaborate:
 
